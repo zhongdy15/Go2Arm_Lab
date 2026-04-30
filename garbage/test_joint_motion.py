@@ -117,11 +117,11 @@ while sim_app.is_running():
     if not (low == 0.0 and high == 0.0):
         angle = float(np.clip(angle, low, high))
 
-    # 构造全关节目标位置（其他关节保持 0）
-    positions = np.zeros(num_dofs, dtype=np.float32)
+    # 构造全关节目标位置（其他关节保持当前值，避免干扰）
+    positions = robot.get_joint_positions()
     positions[joint_idx] = angle
 
-    robot.set_joint_position_targets(positions)
+    robot.set_joint_positions(positions)
 
     world.step(render=True)
     step += 1
