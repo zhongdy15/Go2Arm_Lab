@@ -3,6 +3,27 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+"""
+actor_critic.py - 策略网络实现（双头 Actor-Critic + 师生蒸馏）
+
+网络架构概览:
+┌─────────────────────────────────────────────────────────────┐
+│                        Actor 网络                            │
+│                                                              │
+│  prop_obs (单步) ──┬──→ Backbone MLP(256) ──┬──→ 腿部头[256,128]─→ 12维 leg_actions│
+│                    │                         └──→ 臂部头[256,128]─→  6维 arm_actions│
+│  priv_obs ──→ priv_encoder[32,18] ──→ z_priv ──┘            │
+│  (或)                                                         │
+│  history(T×prop) ──→ StateHistoryEncoder(1DConv) ──→ z_hist  │
+│  (推理时用 z_hist 替代 z_priv，通过 mixing_coef 渐进过渡)       │
+└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                        Critic 网络                           │
+│  prop + priv ──→ Backbone MLP(256) ──┬──→ 腿部价值头[256,128,64]─→ scalar│
+│                                       └──→ 臂部价值头[256,128,64]─→ scalar│
+└─────────────────────────────────────────────────────────────┘
+"""
+
 from __future__ import annotations
 
 import torch
@@ -12,7 +33,15 @@ from torch.distributions import Normal
 from local_rsl_rl.utils import resolve_nn_activation
 
 
-# History Encoder
+# =============================================================================
+# StateHistoryEncoder: 从历史观测序列估计特权信息的潜变量
+#
+# 输入: obs [batch, T, n_prop]（T步历史的本体感知观测）
+# 输出: z   [batch, output_size]（等同于 priv_encoder 的输出维度）
+#
+# 实现方式: 线性投影 → 转置 → 1D卷积 → 线性输出
+# 1D卷积在时间维度上卷积，提取时序特征（类似从历史中预测当前状态）
+# =============================================================================
 class StateHistoryEncoder(nn.Module):
     def __init__(self, activation_fn, input_size, tsteps, output_size, tanh_encoder_output=False):
         # self.device = device
@@ -20,19 +49,22 @@ class StateHistoryEncoder(nn.Module):
         self.activation_fn = activation_fn
         self.tsteps = tsteps
 
-        channel_size = 10
+        channel_size = 10  # 中间卷积通道数
         # last_activation = nn.ELU()
 
+        # 第一步: 线性投影 n_prop → 3*channel_size=30
         self.encoder = nn.Sequential(
                 nn.Linear(input_size, 3 * channel_size), self.activation_fn,
                 )
 
+        # 第二步: 1D卷积提取时序特征（不同历史长度用不同结构）
         if tsteps == 50:
             self.conv_layers = nn.Sequential(
                     nn.Conv1d(in_channels = 3 * channel_size, out_channels = 2 * channel_size, kernel_size = 8, stride = 4), self.activation_fn,
                     nn.Conv1d(in_channels = 2 * channel_size, out_channels = channel_size, kernel_size = 5, stride = 1), self.activation_fn,
                     nn.Conv1d(in_channels = channel_size, out_channels = channel_size, kernel_size = 5, stride = 1), self.activation_fn, nn.Flatten())
         elif tsteps == 10:
+            # 本项目使用 tsteps=10（对应 history_length=10）
             self.conv_layers = nn.Sequential(
                 nn.Conv1d(in_channels = 3 * channel_size, out_channels = 2 * channel_size, kernel_size = 4, stride = 2), self.activation_fn,
                 nn.Conv1d(in_channels = 2 * channel_size, out_channels = channel_size, kernel_size = 2, stride = 1), self.activation_fn,
@@ -45,30 +77,39 @@ class StateHistoryEncoder(nn.Module):
         else:
             raise(ValueError("tsteps must be 10, 20 or 50"))
 
+        # 第三步: 线性映射到 output_size（=priv_encoder输出维度，即18）
         self.linear_output = nn.Sequential(
                 nn.Linear(channel_size * 3, output_size), self.activation_fn
                 )
 
     def forward(self, obs):
+        """
+        obs: [batch, T*n_prop] 或 [batch, T, n_prop]
+        """
         # nd * T * n_proprio
         nd = obs.shape[0]
         T = self.tsteps
-        projection = self.encoder(obs.reshape([nd * T, -1])) # do projection for n_proprio -> 32
+        # 将 [batch, T, n_prop] 展平为 [batch*T, n_prop]，逐时间步投影
+        projection = self.encoder(obs.reshape([nd * T, -1])) # do projection for n_proprio -> 30
+        # 转置为 [batch, channels, T]（Conv1d 输入格式）
         output = self.conv_layers(projection.reshape([nd, T, -1]).permute((0, 2, 1)))
 
         output = self.linear_output(output)
         return output
 
+# =============================================================================
+# ActorCritic: 主策略网络类
+# =============================================================================
 class  ActorCritic(nn.Module):
     is_recurrent = False
 
     def __init__(
         self,  
-        num_actor_obs,
-        num_critic_obs,
-        num_priv,
-        num_actions,
-        num_hist = 10,
+        num_actor_obs,      # 单步本体感知观测维度（不含历史和特权）
+        num_critic_obs,     # Critic 输入维度（本体感知+特权）
+        num_priv,           # 特权观测维度
+        num_actions,        # 总动作维度（腿12+臂6=18）
+        num_hist = 10,      # 历史步数（对应 history_length=10）
         actor_hidden_dims=[256, 256, 256],
         critic_hidden_dims=[256, 256, 256],
         priv_encoder_dims=[64, 18],
@@ -84,13 +125,13 @@ class  ActorCritic(nn.Module):
                 + str([key for key in kwargs.keys()])
             )
 
-        # self.dual_heads = kwargs['dual_heads']
+        # 从 kwargs 获取双头控制配置（由 rsl_rl_ppo_cfg.py 传入）
         leg_control_head_hidden_dims = kwargs['leg_control_head_hidden_dims']
         arm_control_head_hidden_dims = kwargs['arm_control_head_hidden_dims']
         critic_leg_control_head_hidden_dims = kwargs['critic_leg_control_head_hidden_dims']
         critic_arm_control_head_hidden_dims = kwargs['critic_arm_control_head_hidden_dims']
-        self.num_leg_actions = kwargs['num_leg_actions']
-        self.num_arm_actions = kwargs['num_arm_actions']
+        self.num_leg_actions = kwargs['num_leg_actions']  # = 12
+        self.num_arm_actions = kwargs['num_arm_actions']  # = 6
         num_prop = num_actor_obs
         print("num_hist",num_hist)
         print("num_priv",num_priv)

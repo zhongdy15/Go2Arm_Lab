@@ -3,10 +3,17 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Common functions that can be used to enable reward functions.
+"""
+rewards.py - 奖励函数模块
 
-The functions can be passed to the :class:`isaaclab.managers.RewardTermCfg` object to include
-the reward introduced by the function.
+本模块定义了可作为奖励项传入 RewardTermCfg 的函数。
+每个函数返回 shape=[num_envs] 的张量，表示每个并行环境在当前步的奖励值。
+最终奖励 = 各项奖励之和（每项乘以配置中的 weight）。
+
+奖励分类:
+  机械臂任务奖励: position/orientation tracking（名称前缀 "end_effector_"）
+  腿部运动奖励: 速度跟踪、稳定性、步态质量
+  惩罚项: 关节力矩、关节加速度、动作变化率（抑制激烈动作）
 """
 
 from __future__ import annotations
@@ -32,13 +39,25 @@ import numpy as np
 # ================================================================================================================================
 
 def position_command_error_exp(env: ManagerBasedRLEnv, command_name: str, std: float, asset_cfg: SceneEntityCfg) -> torch.Tensor:
+    """末端位置跟踪奖励（指数核），返回值在 (0, 1] 之间
+    
+    计算公式: exp(-|pos_curr - pos_des| / std)
+    - 误差为 0 时奖励为 1
+    - 误差为 std（0.2m）时奖励约为 0.37
+    - std 越大，奖励曲线越宽松（鼓励粗略跟踪）
+    
+    坐标系说明:
+    - des_pos_b: 指令中的目标位置（机体坐标系 x,y + 世界坐标系 z）
+    - des_pos_w: 转换到世界坐标系的目标位置
+    - curr_pos_w: 末端（gripper_link）在世界坐标系的当前位置
+    """
     # extract the asset (to enable type hinting)
     asset: RigidObject = env.scene[asset_cfg.name]
     command = env.command_manager.get_command(command_name)
     # obtain the desired and current positions
     des_pos_b = command[:, :3]
     des_pos_w, _ = combine_frame_transforms(asset.data.root_state_w[:, :3], asset.data.root_state_w[:, 3:7], des_pos_b)
-    des_pos_w[:,2] = des_pos_b[:,2] + asset.data.root_state_w[:, 2]
+    des_pos_w[:,2] = des_pos_b[:,2] + asset.data.root_state_w[:, 2]  # z 轴用世界坐标系高度
     curr_pos_w = asset.data.body_state_w[:, asset_cfg.body_ids[0], :3]  # type: ignore
     output = torch.exp(-torch.sum(torch.abs(curr_pos_w - des_pos_w) / std, dim=1))
     pos_b, _ = subtract_frame_transforms(asset.data.root_state_w[:, :3], asset.data.root_state_w[:, 3:7], des_pos_w)
@@ -58,11 +77,10 @@ def position_command_error_exp(env: ManagerBasedRLEnv, command_name: str, std: f
 
 
 def orientation_command_error(env: ManagerBasedRLEnv, command_name: str, asset_cfg: SceneEntityCfg) -> torch.Tensor:
-    """Penalize tracking orientation error using shortest path.
-
-    The function computes the orientation error between the desired orientation (from the command) and the
-    current orientation of the asset's body (in world frame). The orientation error is computed as the shortest
-    path between the desired and current orientations.
+    """末端姿态跟踪误差（最短弧四元数误差），返回值 ≥ 0
+    
+    计算末端当前姿态与目标姿态之间的角度误差（弧度）。
+    此项使用负权重作为惩罚项。
     """
     # extract the asset (to enable type hinting)
     asset: RigidObject = env.scene[asset_cfg.name]
@@ -75,19 +93,28 @@ def orientation_command_error(env: ManagerBasedRLEnv, command_name: str, asset_c
 
 
 def action_rate_l2_arm(env: ManagerBasedRLEnv) -> torch.Tensor:
-    """Penalize the rate of change of the actions using L2 squared kernel."""
+    """机械臂动作变化率惩罚（L2范数的平方），防止手臂抖动
+    
+    计算当前动作与上一步动作之差的 L2^2 范数（仅臂部 actions[12:]）
+    """
     return torch.sum(torch.square(env.action_manager.action[:,12:] - env.action_manager.prev_action[:,12:]), dim=1)
 
 
 def arm_action_smoothness_penalty(env: ManagerBasedRLEnv) -> torch.Tensor:
-    """Penalize large instantaneous changes in the network action output"""
+    """机械臂动作平滑惩罚（L2范数），与 action_rate_l2_arm 类似但用 L1 范数
+    抑制大的瞬时动作输出变化（臂部）
+    """
     return torch.linalg.norm((env.action_manager.action[:, 12:] - env.action_manager.prev_action[:, 12:]), dim=1)
 
 
 def track_lin_vel_xy_exp(
     env: ManagerBasedRLEnv, std: float, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
-    """Reward tracking of linear velocity commands (xy axes) using exponential kernel."""
+    """线速度(x,y)跟踪奖励（指数核）
+    
+    公式: exp(-||v_des_xy - v_curr_xy||^2 / std)
+    鼓励机器人以指令速度在水平面运动
+    """
     # extract the used quantities (to enable type-hinting)
     asset: RigidObject = env.scene[asset_cfg.name]
     # compute the error
@@ -113,7 +140,10 @@ def track_lin_vel_xy_exp(
 def track_ang_vel_z_exp(
     env: ManagerBasedRLEnv, std: float, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
-    """Reward tracking of angular velocity commands (yaw) using exponential kernel."""
+    """偏航角速度跟踪奖励（指数核）
+    
+    公式: exp(-(wz_des - wz_curr)^2 / std^2)
+    """
     # extract the used quantities (to enable type-hinting)
     asset: RigidObject = env.scene[asset_cfg.name]
     # compute the error
@@ -122,21 +152,21 @@ def track_ang_vel_z_exp(
 
 
 def lin_vel_z_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
-    """Penalize z-axis base linear velocity using L2 squared kernel."""
+    """垂直方向速度惩罚（L2^2），抑制机体上下颠簸"""
     # extract the used quantities (to enable type-hinting)
     asset: RigidObject = env.scene[asset_cfg.name]
     return torch.square(asset.data.root_lin_vel_b[:, 2])
 
 
 def ang_vel_xy_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
-    """Penalize xy-axis base angular velocity using L2 squared kernel."""
+    """横滚/俯仰角速度惩罚（L2^2），维持机体稳定"""
     # extract the used quantities (to enable type-hinting)
     asset: RigidObject = env.scene[asset_cfg.name]
     return torch.sum(torch.square(asset.data.root_ang_vel_b[:, :2]), dim=1)
 
 
 def joint_torques_l2_Go2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
-    """Penalize joint torques applied on the articulation using L2 squared kernel.
+    """腿部关节力矩惩罚（L2^2），降低能耗，仅统计 12 条腿关节
 
     NOTE: Only the joints configured in :attr:`asset_cfg.joint_ids` will have their joint torques contribute to the term.
     """
@@ -151,7 +181,7 @@ def joint_torques_l2_Go2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = Sce
 
 
 def joint_acc_l2_Go2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
-    """Penalize joint accelerations on the articulation using L2 squared kernel.
+    """腿部关节加速度惩罚（L2^2），防止关节剧烈运动，提高机械寿命
 
     NOTE: Only the joints configured in :attr:`asset_cfg.joint_ids` will have their joint accelerations contribute to the term.
     """
@@ -166,20 +196,18 @@ def joint_acc_l2_Go2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEn
 
 
 def action_rate_l2_Go2(env: ManagerBasedRLEnv) -> torch.Tensor:
-    """Penalize the rate of change of the actions using L2 squared kernel."""
+    """腿部动作变化率惩罚（L2^2），防止步态抖动（仅腿部 actions[:12]）"""
     return torch.sum(torch.square(env.action_manager.action[:,:12] - env.action_manager.prev_action[:,:12]), dim=1)
 
 
 def feet_air_time(
     env: ManagerBasedRLEnv, command_name: str, sensor_cfg: SceneEntityCfg, threshold: float
 ) -> torch.Tensor:
-    """Reward long steps taken by the feet using L2-kernel.
-
-    This function rewards the agent for taking steps that are longer than a threshold. This helps ensure
-    that the robot lifts its feet off the ground and takes steps. The reward is computed as the sum of
-    the time for which the feet are in the air.
-
-    If the commands are small (i.e. the agent is not supposed to take a step), then the reward is zero.
+    """步态奖励：鼓励足部较长的腾空时间（促进迈步而非拖步）
+    
+    计算方法: 若脚在本步首次着地，则累加 (上次腾空时长 - threshold) 作为奖励
+    - threshold=0.5s: 腾空时长超过0.5s才有正奖励
+    - 若底盘速度指令接近零，奖励为0（站立时不需要迈步）
     """
     # extract the used quantities (to enable type-hinting)
     contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]

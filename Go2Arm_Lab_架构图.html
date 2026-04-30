@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Go2Arm_Lab 项目架构图</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Microsoft YaHei", "SimHei", sans-serif;
+    font-size: 11px;
+    background: #fff;
+    color: #111;
+    padding: 18px 22px;
+  }
+  h1 {
+    font-size: 16px;
+    text-align: center;
+    margin-bottom: 6px;
+    letter-spacing: 2px;
+    border-bottom: 2px solid #333;
+    padding-bottom: 5px;
+  }
+  h2 {
+    font-size: 12px;
+    margin: 12px 0 5px 0;
+    padding: 3px 8px;
+    background: #333;
+    color: #fff;
+    border-radius: 3px;
+  }
+  pre {
+    font-family: "Consolas", "Courier New", "SimSun", monospace;
+    font-size: 9.5px;
+    line-height: 1.45;
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px 12px;
+    white-space: pre;
+    overflow: hidden;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 5px;
+    font-size: 10.5px;
+  }
+  th {
+    background: #333;
+    color: #fff;
+    padding: 5px 8px;
+    text-align: left;
+  }
+  td {
+    padding: 4px 8px;
+    border-bottom: 1px solid #e0e0e0;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f5f5f5; }
+  td:first-child {
+    font-family: "Consolas", monospace;
+    font-size: 9.5px;
+    color: #0055aa;
+    white-space: nowrap;
+  }
+  td:nth-child(2) {
+    color: #c00;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  .subtitle {
+    text-align: center;
+    color: #555;
+    font-size: 10px;
+    margin-bottom: 10px;
+  }
+
+  @media print {
+    body { padding: 10mm 12mm; font-size: 10px; }
+    h2 { page-break-after: avoid; }
+    pre { font-size: 8.5px; }
+    table { font-size: 9.5px; }
+    @page { size: A4; margin: 10mm; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Go2Arm_Lab 项目架构图</h1>
+<p class="subtitle">Isaac Lab + RSL-RL 四足机械臂强化学习框架 · 2026</p>
+
+<!-- ① 整体架构 -->
+<h2>① 整体模块架构</h2>
+<pre>
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              Go2Arm_Lab 项目整体架构                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+
+ ┌──────────────────────────────────────────────────┐
+ │  scripts/rsl_rl/         【入口层：训练 & 推理】    │
+ │                                                  │
+ │  train.py  ─── 训练入口：启动仿真→创建环境→PPO训练  │
+ │  play.py   ─── 推理入口：加载ckpt→推理→导出模型    │
+ │  cli_args.py ─ 命令行参数（--checkpoint 等）       │
+ └──────────────────────────────────────────────────┘
+           │ 调用                       │ 调用
+           ▼                            ▼
+ ┌────────────────────────┐    ┌───────────────────────────────────────────────────────┐
+ │  local_rsl_rl/          │    │  source/Go2Arm_Lab/Go2Arm_Lab/   【环境层：MDP定义】  │
+ │  【算法层：PPO 实现】    │    │                                                       │
+ │                         │    │  assets/                                              │
+ │  runners/               │    │   go2arm_articulation_cfg.py ── 机器人关节/执行器参数 │
+ │   on_policy_runner.py   │    │   go2_arm.usd ───────────────── 机器人3D模型+物理属性 │
+ │   ├─ 管理训练主循环      │    │                                                       │
+ │   ├─ 调用 PPO 算法       │    │  tasks/manager_based/go2arm_lab/                      │
+ │   └─ 保存/加载ckpt      │    │   go2arm_lab_env_cfg.py ←──── 核心MDP配置（基类）     │
+ │                         │    │   ├─ SceneCfg:       地形 + 机器人 + 传感器           │
+ │  algorithms/            │    │   ├─ EventCfg:       域随机化事件                     │
+ │   ppo.py                │    │   ├─ ActionsCfg:     18D动作空间（腿12+臂6）          │
+ │   └─ PPO损失+参数更新    │    │   ├─ ObservationsCfg:10步历史堆叠观测                 │
+ │   distillation.py       │    │   ├─ RewardsCfg:     所有奖励项定义                   │
+ │   └─ DAgger 蒸馏更新    │    │   └─ CurriculumCfg:  课程学习规则                     │
+ │                         │    │                                                       │
+ │  modules/               │    │   config/                                             │
+ │   actor_critic.py       │    │    flat_env_cfg.py  ── 平地专用：覆盖奖励权重/指令范围 │
+ │   ├─ StateHistoryEncoder│    │    rough_env_cfg.py ── 复杂地形专用参数                │
+ │   ├─ ActorCritic(双头)  │    │    agents/                                            │
+ │   └─ priv_encoder        │    │     rsl_rl_ppo_cfg.py ─ PPO超参数+网络架构配置       │
+ │   normalizer.py          │    │    __init__.py ─────── gym.register() 注册任务名     │
+ │   └─ obs 归一化器         │    │                                                       │
+ │   rnd.py                │    │  tasks/.../mdp/                                       │
+ │   └─ 随机网络蒸馏探索奖励  │    │   observations.py ─ 观测函数（关节角/接触力/特权obs） │
+ │                         │    │   rewards.py ────── 奖励函数（末端追踪/步态/稳定性）   │
+ │  networks/              │    │   pose_command.py ─ 末端位姿目标指令生成               │
+ │   memory.py             │    │   velocity_command.py ─ 速度目标指令生成              │
+ │   └─ GRU 记忆模块        │    │   cfg/command_cfg.py ─ 指令参数配置                  │
+ │                         │    │                                                       │
+ │  storage/               │    │  env/                                                 │
+ │   rollout_storage.py    │    │   manager_env.py ────── 自定义 ManagerRLEnv           │
+ │   └─ 轨迹数据缓存         │    │   local_manager/                                      │
+ │                         │    │    observation_manager.py ─ obs 采集管理              │
+ │  wrappers/              │    │    reward_manager.py ────── 奖励计算管理              │
+ │   VecEnvWrapper.py      │    │                                                       │
+ │   └─ obs拆分/接口适配    │    └───────────────────────────────────────────────────────┘
+ └────────────────────────┘
+</pre>
+
+<!-- ② 数据流 -->
+<h2>② 训练时数据流（从命令行到 checkpoint）</h2>
+<pre>
+   命令行: python train.py --task Isaac-Go2Arm-Flat --headless
+                │
+                ▼
+   config/__init__.py          ← gym.register("Isaac-Go2Arm-Flat", kwargs={
+                │                     "env_cfg_entry_point": "flat_env_cfg:Go2ARMFlatEnvCfg",
+                │ 注册表查找             "rsl_rl_cfg_entry_point": "rsl_rl_ppo_cfg:Go2ArmFlatPPORunnerCfg"
+                ▼                 })
+   @hydra_task_config           ← 动态 import 并实例化两个 cfg 对象
+    ├── flat_env_cfg.py         ← Go2ARMFlatEnvCfg（覆盖奖励/课程参数）
+    │       └── go2arm_lab_env_cfg.py   ← 完整 MDP 结构（继承基类）
+    │               └── go2arm_articulation_cfg.py  ← 加载 go2_arm.usd
+    └── rsl_rl_ppo_cfg.py       ← PPO 超参数 + 网络架构配置
+                │
+                ▼
+   gym.make()                   ← 实例化 ManagerRLEnv
+    ├── 加载地形 USD
+    ├── 生成 N 个并行机器人
+    └── 初始化所有 Manager（Obs / Reward / Event / Action / Curriculum）
+                │
+                ▼
+   VecEnvWrapper.py             ← 将 obs 字典拆分为三部分:
+                │                   prop_obs  [N, 52]      本体感知（当前帧）
+                │                   priv_obs  [N, 27]      特权观测（训练专用）
+                │                   hist_obs  [N, 10×52]   10步历史（供编码器）
+                ▼
+   OnPolicyRunner               ← 训练主循环（每次迭代）:
+    │  ┌─────────────────────────────────────────────────────┐
+    │  │ Step 1: 采集 24 步 rollout → rollout_storage        │
+    │  │ Step 2: 计算 GAE 广义优势估计                        │
+    │  │ Step 3: 5 轮 × 4 mini-batch → PPO 梯度更新          │
+    │  │          ├─ actor_critic.py  前向推理                │
+    │  │          └─ ppo.py          裁剪目标函数 + 价值损失  │
+    │  │ Step 4: 混合调度 mixing_schedule 逐渐切换到历史编码  │
+    │  │ Step 5: 扩展课程学习指令范围                         │
+    │  └─────────────────────────────────────────────────────┘
+    │       每 1000 次迭代保存一次
+                ▼
+   logs/rsl_rl/unitree_Go2arm_flat/{时间戳}/model_XXXX.pt
+</pre>
+
+<!-- ③ 神经网络结构 -->
+<h2>③ 神经网络结构（actor_critic.py）</h2>
+<pre>
+  输入（推理时）                    输入（训练时）
+  hist_obs [N, 10×52]              priv_obs [N, 27]
+       │                                 │
+       ▼                                 ▼
+  StateHistoryEncoder              priv_encoder
+  ┌─────────────────────┐          ┌───────────┐
+  │ Linear(52→30)       │          │ MLP       │
+  │ Conv1d(30,20,k=4,s2)│          │ 27→32→18  │
+  │ Conv1d(20,10,k=2,s1)│          └─────┬─────┘
+  │ Flatten → Linear→18 │                │
+  └─────────┬───────────┘                │
+            │  latent [N, 18]            │ latent [N, 18]
+            └──────────┬─────────────────┘
+                       ▼
+           prop_obs [N, 52] + latent [N, 18] = [N, 70]
+                       │
+                       ▼
+                backbone MLP [256, 256]        ← 共享特征提取
+                       │
+          ┌────────────┴────────────┐
+          ▼                         ▼
+    腿部 Actor Head            手臂 Actor Head
+    MLP [256, 128] → 12D       MLP [256, 128] → 6D
+    （4腿×3关节）               （6个手臂关节）
+                       │
+                       ▼  合并
+              actions [N, 18]
+
+    Critic Head（价值估计，仅训练时使用）:
+    backbone输出 → MLP [256, 128, 128] → 1D（状态价值 V）
+</pre>
+
+<!-- ④ 文件速查表 -->
+<h2>④ 文件功能速查表</h2>
+<table>
+  <tr>
+    <th>文件路径</th>
+    <th>角色</th>
+    <th>关键内容</th>
+  </tr>
+  <tr>
+    <td>scripts/rsl_rl/train.py</td>
+    <td>训练入口</td>
+    <td>启动仿真器 → 创建环境 → PPO训练循环 → 保存checkpoint</td>
+  </tr>
+  <tr>
+    <td>scripts/rsl_rl/play.py</td>
+    <td>推理入口</td>
+    <td>加载checkpoint → 重排历史obs → 推理 → 导出TorchScript(.pt)</td>
+  </tr>
+  <tr>
+    <td>scripts/rsl_rl/cli_args.py</td>
+    <td>参数工具</td>
+    <td>RSL-RL专用CLI参数定义（--checkpoint, --load_run等）</td>
+  </tr>
+  <tr>
+    <td>assets/go2arm_articulation_cfg.py</td>
+    <td>机器人硬件配置</td>
+    <td>USD路径、初始关节角、执行器类型/力矩限制/刚度阻尼</td>
+  </tr>
+  <tr>
+    <td>assets/go2_arm.usd</td>
+    <td>机器人3D模型</td>
+    <td>几何网格、碰撞体、惯量参数（PhysX使用）</td>
+  </tr>
+  <tr>
+    <td>tasks/.../go2arm_lab_env_cfg.py</td>
+    <td>核心MDP定义（基类）</td>
+    <td>Scene/Event/Action/Obs/Reward/Curriculum 全部Manager结构</td>
+  </tr>
+  <tr>
+    <td>tasks/.../config/flat_env_cfg.py</td>
+    <td>平地训练配置</td>
+    <td>覆盖：平面地形、奖励权重调参、课程学习初始/最终范围</td>
+  </tr>
+  <tr>
+    <td>tasks/.../config/rough_env_cfg.py</td>
+    <td>复杂地形配置</td>
+    <td>覆盖：随机地形生成、启用push扰动、更大动作范围</td>
+  </tr>
+  <tr>
+    <td>tasks/.../config/agents/rsl_rl_ppo_cfg.py</td>
+    <td>算法超参数</td>
+    <td>网络层数、mixing_schedule[1.0,0,4000]、PPO clip/lr/epochs</td>
+  </tr>
+  <tr>
+    <td>tasks/.../config/__init__.py</td>
+    <td>任务注册</td>
+    <td>gym.register() 将任务名映射到cfg类路径</td>
+  </tr>
+  <tr>
+    <td>tasks/.../mdp/observations.py</td>
+    <td>观测函数</td>
+    <td>关节角/速度、本体加速度、接触力、特权obs（质量/力矩）</td>
+  </tr>
+  <tr>
+    <td>tasks/.../mdp/rewards.py</td>
+    <td>奖励函数</td>
+    <td>末端位置追踪(exp)、步态air-time、稳定性惩罚</td>
+  </tr>
+  <tr>
+    <td>tasks/.../mdp/pose_command.py</td>
+    <td>末端指令生成</td>
+    <td>在工作空间内随机采样7D末端位姿目标（含课程扩展）</td>
+  </tr>
+  <tr>
+    <td>tasks/.../mdp/velocity_command.py</td>
+    <td>速度指令生成</td>
+    <td>随机采样底盘速度目标（含课程扩展、静止比例）</td>
+  </tr>
+  <tr>
+    <td>env/manager_env.py</td>
+    <td>自定义环境类</td>
+    <td>继承IsaacLab ManagerBasedRLEnv，扩展obs分组逻辑</td>
+  </tr>
+  <tr>
+    <td>local_rsl_rl/modules/actor_critic.py</td>
+    <td>神经网络</td>
+    <td>双头Actor(腿/臂) + StateHistoryEncoder + priv_encoder</td>
+  </tr>
+  <tr>
+    <td>local_rsl_rl/modules/normalizer.py</td>
+    <td>obs归一化</td>
+    <td>运行时均值/方差统计，推理时同步到policy.pt</td>
+  </tr>
+  <tr>
+    <td>local_rsl_rl/algorithms/ppo.py</td>
+    <td>PPO算法</td>
+    <td>裁剪目标函数、价值损失、熵正则、梯度裁剪</td>
+  </tr>
+  <tr>
+    <td>local_rsl_rl/algorithms/distillation.py</td>
+    <td>DAgger蒸馏</td>
+    <td>教师(priv_encoder)→学生(hist_encoder)的监督蒸馏更新</td>
+  </tr>
+  <tr>
+    <td>local_rsl_rl/runners/on_policy_runner.py</td>
+    <td>训练主循环</td>
+    <td>采集rollout → GAE → PPO更新 → 课程扩展 → 保存ckpt</td>
+  </tr>
+  <tr>
+    <td>local_rsl_rl/storage/rollout_storage.py</td>
+    <td>轨迹缓存</td>
+    <td>存储N_envs × N_steps的obs/action/reward/done数据</td>
+  </tr>
+  <tr>
+    <td>local_rsl_rl/wrappers/VecEnvWrapper.py</td>
+    <td>环境适配层</td>
+    <td>将obs字典拆分为(prop/priv/hist)三元组供网络使用</td>
+  </tr>
+  <tr>
+    <td>local_rsl_rl/networks/memory.py</td>
+    <td>GRU记忆模块</td>
+    <td>可选的循环记忆网络（当前项目使用卷积历史编码器替代）</td>
+  </tr>
+</table>
+
+</body>
+</html>

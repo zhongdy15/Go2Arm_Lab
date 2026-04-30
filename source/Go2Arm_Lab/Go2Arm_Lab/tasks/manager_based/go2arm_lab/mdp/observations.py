@@ -3,10 +3,15 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Common functions that can be used to create observation terms.
+"""
+observations.py - 观测函数模块
 
-The functions can be passed to the :class:`isaaclab.managers.ObservationTermCfg` object to enable
-the observation introduced by the function.
+本模块定义了可作为观测项传入 ObservationTermCfg 的函数。
+每个函数接收 env 对象，返回 torch.Tensor（形状为 [num_envs, dim]）。
+
+观测分类:
+  普通观测: 机体角速度、关节状态、动作历史、指令、重力方向
+  特权观测: 质量偏差、实际力矩、机体线速度、脚部接触（函数名加 priv_ 前缀在 cfg 中区分）
 """
 
 from __future__ import annotations
@@ -24,21 +29,33 @@ from isaaclab.sensors import Camera, Imu, RayCaster, RayCasterCamera, TiledCamer
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv, ManagerBasedRLEnv
 
+# 推理模式标志，开启后会将观测数据写入文件供调试分析
 PLAY = False
 
 # ================================================================================================================================
 
 def base_ang_vel(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
-    """Root angular velocity in the asset's root frame."""
+    """机体角速度（在机体坐标系下）, shape=[num_envs, 3]
+    对应 IMU 陀螺仪测量值，包含 roll/pitch/yaw 角速度"""
     # extract the used quantities (to enable type-hinting)
     asset: RigidObject = env.scene[asset_cfg.name]
     # print("base_ang_vel: ",asset.data.root_ang_vel_b)
     return asset.data.root_ang_vel_b
 
 def joint_pos_rel(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
-    """The joint positions of the asset w.r.t. the default joint positions.
-
-    Note: Only the joints configured in :attr:`asset_cfg.joint_ids` will have their positions returned.
+    """关节位置相对默认值的偏差, shape=[num_envs, 18]
+    
+    关节顺序（训练和推理必须一致）:
+      0-2:   FR 右前腿 (hip, thigh, calf)
+      3-5:   FL 左前腿
+      6-8:   RR 右后腿
+      9-11:  RL 左后腿
+      12:    waist（腰转）
+      13:    shoulder（肩）
+      14:    elbow（肘）
+      15:    forearm_roll（前臂旋转）
+      16:    wrist_angle（腕俯仰）
+      17:    wrist_rotate（腕旋转）
     """
     # extract the used quantities (to enable type-hinting)
     asset: Articulation = env.scene[asset_cfg.name]
@@ -55,9 +72,9 @@ def joint_pos_rel(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityC
 
 
 def joint_vel_rel(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")):
-    """The joint velocities of the asset w.r.t. the default joint velocities.
-
-    Note: Only the joints configured in :attr:`asset_cfg.joint_ids` will have their velocities returned.
+    """关节速度相对默认速度的偏差, shape=[num_envs, 18]
+    
+    关节顺序与 joint_pos_rel 完全相同（腿12个 + 臂6个）
     """
     # extract the used quantities (to enable type-hinting)
     asset: Articulation = env.scene[asset_cfg.name]
@@ -73,10 +90,10 @@ def joint_vel_rel(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityC
 
 
 def last_action(env: ManagerBasedEnv, action_name: str | None = None) -> torch.Tensor:
-    """The last input action to the environment.
-
-    The name of the action term for which the action is required. If None, the
-    entire action tensor is returned.
+    """上一步输入动作, shape=[num_envs, num_actions]
+    
+    作为观测输入可以让策略了解自身的历史行为，对于 PD 控制器尤其重要。
+    action_name=None 时返回全部 18 维动作（腿12 + 臂6）
     """
     if action_name is None:
         return env.action_manager.action
@@ -87,6 +104,11 @@ def last_action(env: ManagerBasedEnv, action_name: str | None = None) -> torch.T
 
 from isaaclab.sensors import ContactSensor
 def feet_contact(env: ManagerBasedRLEnv, sensor_cfg: SceneEntityCfg):
+    """脚部首次接触地面的标志（bool），shape=[num_envs, 4]
+    
+    first_contact=True 表示该脚在本步从离地变为接触。
+    用于特权观测，帮助网络理解步态相位。
+    """
     # extract the used quantities (to enable type-hinting)
     contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
     # compute the reward
