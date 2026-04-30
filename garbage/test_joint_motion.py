@@ -81,8 +81,27 @@ print(f"测试关节: '{TARGET_JOINT}'  (index={joint_idx})")
 print(f"幅度={AMPLITUDE_RAD:.2f} rad，周期={PERIOD_STEPS} steps，总步数={TOTAL_STEPS}\n")
 
 # 获取关节限位（如果有）
-dof_limits = robot.get_dof_limits()  # shape: (num_dofs, 2)  [lower, upper]
-low, high = float(dof_limits[joint_idx][0]), float(dof_limits[joint_idx][1])
+# SingleArticulation 使用 get_articulation_controller 或直接从 prim 读取限位
+try:
+    from omni.isaac.core.utils.types import ArticulationAction
+    import omni.physics.tensors as physx_tensors
+    dof_limits = robot.get_dof_limits()  # 部分版本支持
+    low, high = float(dof_limits[joint_idx][0]), float(dof_limits[joint_idx][1])
+except AttributeError:
+    # 回退：从 USD prim 读取 physics:lowerLimit / physics:upperLimit
+    import math as _math
+    from pxr import UsdPhysics
+    joint_prim = None
+    for prim in robot.prim.GetAllChildren():
+        if prim.GetName() == TARGET_JOINT or prim.GetPath().pathString.endswith("/" + TARGET_JOINT):
+            joint_prim = prim
+            break
+    if joint_prim and joint_prim.HasAPI(UsdPhysics.RevoluteJoint):
+        rev = UsdPhysics.RevoluteJoint(joint_prim)
+        low  = _math.radians(rev.GetLowerLimitAttr().Get() or -360)
+        high = _math.radians(rev.GetUpperLimitAttr().Get() or  360)
+    else:
+        low, high = -_math.pi, _math.pi  # 默认 ±π
 print(f"关节限位: [{low:.3f}, {high:.3f}] rad")
 
 # ── 主仿真循环 ──
