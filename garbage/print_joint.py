@@ -1,8 +1,8 @@
-from omni.isaac.kit import SimulationApp
+from isaacsim import SimulationApp
 from pxr import Usd, UsdGeom
 
 # 启动 Isaac Sim
-sim = SimulationApp()
+sim = SimulationApp({"headless": True})
 
 # 打开 USD 文件
 stage = Usd.Stage.Open("/data/zdy/Go2Arm_Lab/source/Go2Arm_Lab/Go2Arm_Lab/assets/go2_arm.usd")
