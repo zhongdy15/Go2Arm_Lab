@@ -9,7 +9,7 @@ test_joint_motion.py
 # ──────────────────────────────────────────────
 #  USER CONFIG  ← 根据需要修改这里
 # ──────────────────────────────────────────────
-USD_PATH      = "/data/zdy/Go2Arm_Lab/source/Go2Arm_Lab/Go2Arm_Lab/assets/go2_weapon.usd"
+USD_PATH      = "/data/zdy/Go2Arm_Lab/source/Go2Arm_Lab/Go2Arm_Lab/assets/go2_weapon_v2.usd"
 ROBOT_PRIM    = "/go2_wx250s"          # USD Stage 中机器人根节点路径
 
 # 填入你想测试的关节名称（dof name），留空则脚本会打印所有可用关节后退出
