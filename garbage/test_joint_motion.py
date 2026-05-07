@@ -18,7 +18,7 @@ TARGET_JOINT  = "FR_hip_joint"#"shoulder"#"waist"#"shoulder"                    
 # 运动参数
 AMPLITUDE_RAD = 0.8    # 往复运动幅度（弧度）
 PERIOD_STEPS  = 200    # 完成一次完整往复所需的仿真步数
-TOTAL_STEPS   = 600    # 总仿真步数（0 表示无限循环直到关闭窗口）
+TOTAL_STEPS   = 0    # 总仿真步数（0 表示无限循环直到关闭窗口）
 PHYSICS_DT    = 1/60   # 物理步长 (秒)
 # ──────────────────────────────────────────────
 
