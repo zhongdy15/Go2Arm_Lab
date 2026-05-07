@@ -13,7 +13,7 @@ USD_PATH      = "/data/zdy/Go2Arm_Lab/source/Go2Arm_Lab/Go2Arm_Lab/assets/go2_we
 ROBOT_PRIM    = "/go2_wx250s"          # USD Stage 中机器人根节点路径
 
 # 填入你想测试的关节名称（dof name），留空则脚本会打印所有可用关节后退出
-TARGET_JOINT  = "shoulder"#"waist"#"shoulder"                      # 例如: "waist" / "FR_hip_joint" / ...
+TARGET_JOINT  = "FR_hip_joint"#"shoulder"#"waist"#"shoulder"                      # 例如: "waist" / "FR_hip_joint" / ...
 
 # 运动参数
 AMPLITUDE_RAD = 0.8    # 往复运动幅度（弧度）
