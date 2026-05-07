@@ -9,7 +9,7 @@ print_usd_info.py
 # ──────────────────────────────────────────────
 #  USER CONFIG
 # ──────────────────────────────────────────────
-USD_PATH    = "/data/zdy/Go2Arm_Lab/source/Go2Arm_Lab/Go2Arm_Lab/assets/go2_arm_v3.usd"
+USD_PATH    = "/data/zdy/Go2Arm_Lab/source/Go2Arm_Lab/Go2Arm_Lab/assets/go2_arm.usd"
 ROBOT_PRIM  = "/go2_wx250s"   # USD Stage 中机器人根节点路径
 PHYSICS_DT  = 1 / 60
 HEADLESS    = True            # 仅打印信息，无需可视化
