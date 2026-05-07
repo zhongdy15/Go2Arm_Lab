@@ -163,3 +163,50 @@ class Go2ArmRoughPPORunnerCfg(Go2ArmRslRlOnPolicyRunnerCfg):
         mixing_schedule=[1.0, 0, 3000] ,
         eps = 1e-5,
     )
+
+
+# =============================================================================
+# Go2ArmV3 圆周运动任务专用 PPO 配置
+#   - 14 DOF (12 腿 + 2 臂)
+#   - num_leg_actions = 12, num_arm_actions = 2
+# =============================================================================
+@configclass
+class Go2ArmV3CirclePPORunnerCfg(Go2ArmRslRlOnPolicyRunnerCfg):
+    num_steps_per_env = 24
+    max_iterations = 10000
+    save_interval = 500
+    experiment_name = "unitree_Go2arm_v3_circle"
+    empirical_normalization = False
+    policy = Go2ArmRslRlPpoActorCriticCfg(
+        init_noise_std=1.0,
+        actor_hidden_dims=[256],
+        critic_hidden_dims=[256],
+        activation="elu",
+        activation_out="elu",
+        leg_control_head_hidden_dims=[256, 128],
+        arm_control_head_hidden_dims=[256, 128],
+        critic_leg_control_head_hidden_dims=[256, 128, 64],
+        critic_arm_control_head_hidden_dims=[256, 128, 64],
+        priv_encoder_dims=[32, 18],
+        num_leg_actions=12,
+        num_arm_actions=2,  # v3 仅有 waist + shoulder
+    )
+
+    algorithm = Go2ArmRslRlPpoAlgorithmCfg(
+        value_loss_coef=1.0,
+        use_clipped_value_loss=True,
+        clip_param=0.2,
+        entropy_coef=0.005,
+        num_learning_epochs=5,
+        num_mini_batches=4,
+        learning_rate=1e-3,
+        schedule="adaptive",
+        gamma=0.99,
+        lam=0.95,
+        desired_kl=0.01,
+        max_grad_norm=1.0,
+        dagger_update_freq=20,
+        priv_reg_coef_schedual=[0, 0.1, 1500, 4000],
+        mixing_schedule=[1.0, 0, 3000],
+        eps=1e-5,
+    )
