@@ -1,0 +1,341 @@
+============================================================
+USD: /data/zdy/Go2Arm_Lab/source/Go2Arm_Lab/Go2Arm_Lab/assets/go2_arm_v3.usd
+============================================================
+Robot prim path: /go2_wx250s
+
+============================================================
+Articulation DOF (关节顺序，可用于控制索引)
+============================================================
+DOF count: 14
+  [ 0] FL_hip_joint
+  [ 1] FR_hip_joint
+  [ 2] RL_hip_joint
+  [ 3] RR_hip_joint
+  [ 4] waist
+  [ 5] FL_thigh_joint
+  [ 6] FR_thigh_joint
+  [ 7] RL_thigh_joint
+  [ 8] RR_thigh_joint
+  [ 9] shoulder
+  [10] FL_calf_joint
+  [11] FR_calf_joint
+  [12] RL_calf_joint
+  [13] RR_calf_joint
+
+============================================================
+Articulation Body / Link 名称
+============================================================
+Body count: 0
+
+============================================================
+USD Physics Joint 详细信息  (共 18 个)
+============================================================
+
+  [ 0] FL_hip_joint  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/base/FL_hip_joint
+       body0: /go2_wx250s/base
+       body1: /go2_wx250s/FL_hip
+       axis : X
+       limit: [-60.0001335144043, 60.0001335144043] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.009999999776482582, max_force=23.700000762939453
+
+  [ 1] FR_hip_joint  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/base/FR_hip_joint
+       body0: /go2_wx250s/base
+       body1: /go2_wx250s/FR_hip
+       axis : X
+       limit: [-60.0001335144043, 60.0001335144043] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.009999999776482582, max_force=23.700000762939453
+
+  [ 2] RL_hip_joint  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/base/RL_hip_joint
+       body0: /go2_wx250s/base
+       body1: /go2_wx250s/RL_hip
+       axis : X
+       limit: [-60.0001335144043, 60.0001335144043] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.009999999776482582, max_force=23.700000762939453
+
+  [ 3] RR_hip_joint  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/base/RR_hip_joint
+       body0: /go2_wx250s/base
+       body1: /go2_wx250s/RR_hip
+       axis : X
+       limit: [-60.0001335144043, 60.0001335144043] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.009999999776482582, max_force=23.700000762939453
+
+  [ 4] waist  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/base/waist
+       body0: /go2_wx250s/base
+       body1: /go2_wx250s/shoulder_link
+       axis : Z
+       limit: [-179.99942016601562, 179.99942016601562] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.0, max_force=10.0
+
+  [ 5] FL_thigh_joint  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/FL_hip/FL_thigh_joint
+       body0: /go2_wx250s/FL_hip
+       body1: /go2_wx250s/FL_thigh
+       axis : Y
+       limit: [-90.00020599365234, 200.0023651123047] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.009999999776482582, max_force=23.700000762939453
+
+  [ 6] FL_calf_joint  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/FL_thigh/FL_calf_joint
+       body0: /go2_wx250s/FL_thigh
+       body1: /go2_wx250s/FL_calf
+       axis : Y
+       limit: [-155.9992218017578, -48.00010681152344] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.009999999776482582, max_force=35.54999923706055
+
+  [ 7] FL_foot_joint  (PhysicsFixedJoint)
+       path : /go2_wx250s/FL_calf/FL_foot_joint
+       body0: /go2_wx250s/FL_calf
+       body1: /go2_wx250s/FL_foot
+
+  [ 8] FR_thigh_joint  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/FR_hip/FR_thigh_joint
+       body0: /go2_wx250s/FR_hip
+       body1: /go2_wx250s/FR_thigh
+       axis : Y
+       limit: [-90.00020599365234, 200.0023651123047] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.009999999776482582, max_force=23.700000762939453
+
+  [ 9] FR_calf_joint  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/FR_thigh/FR_calf_joint
+       body0: /go2_wx250s/FR_thigh
+       body1: /go2_wx250s/FR_calf
+       axis : Y
+       limit: [-155.9992218017578, -48.00010681152344] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.009999999776482582, max_force=35.54999923706055
+
+  [10] FR_foot_joint  (PhysicsFixedJoint)
+       path : /go2_wx250s/FR_calf/FR_foot_joint
+       body0: /go2_wx250s/FR_calf
+       body1: /go2_wx250s/FR_foot
+
+  [11] RL_thigh_joint  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/RL_hip/RL_thigh_joint
+       body0: /go2_wx250s/RL_hip
+       body1: /go2_wx250s/RL_thigh
+       axis : Y
+       limit: [-90.00020599365234, 200.0023651123047] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.009999999776482582, max_force=23.700000762939453
+
+  [12] RL_calf_joint  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/RL_thigh/RL_calf_joint
+       body0: /go2_wx250s/RL_thigh
+       body1: /go2_wx250s/RL_calf
+       axis : Y
+       limit: [-155.9992218017578, -48.00010681152344] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.009999999776482582, max_force=35.54999923706055
+
+  [13] RL_foot_joint  (PhysicsFixedJoint)
+       path : /go2_wx250s/RL_calf/RL_foot_joint
+       body0: /go2_wx250s/RL_calf
+       body1: /go2_wx250s/RL_foot
+
+  [14] RR_thigh_joint  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/RR_hip/RR_thigh_joint
+       body0: /go2_wx250s/RR_hip
+       body1: /go2_wx250s/RR_thigh
+       axis : Y
+       limit: [-90.00020599365234, 200.0023651123047] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.009999999776482582, max_force=23.700000762939453
+
+  [15] RR_calf_joint  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/RR_thigh/RR_calf_joint
+       body0: /go2_wx250s/RR_thigh
+       body1: /go2_wx250s/RR_calf
+       axis : Y
+       limit: [-155.9992218017578, -48.00010681152344] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.009999999776482582, max_force=35.54999923706055
+
+  [16] RR_foot_joint  (PhysicsFixedJoint)
+       path : /go2_wx250s/RR_calf/RR_foot_joint
+       body0: /go2_wx250s/RR_calf
+       body1: /go2_wx250s/RR_foot
+
+  [17] shoulder  (PhysicsRevoluteJoint)
+       path : /go2_wx250s/shoulder_link/shoulder
+       body0: /go2_wx250s/shoulder_link
+       body1: /go2_wx250s/upper_arm_link
+       axis : Y
+       limit: [-108.0, 114.0] deg
+       drive[angular]: target_pos=0.0, target_vel=0.0, stiffness=0.0, damping=0.0, max_force=20.0
+
+============================================================
+USD Rigid Body 详细信息  (共 19 个)
+============================================================
+
+  [ 0] base  (Xform)
+       path        : /go2_wx250s/base
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 7.46073579788208
+       density     : 0.0
+       center_mass : (0.025365446, 0.000044328834, 0.0005343362)
+       has_collider: False
+
+  [ 1] FL_hip  (Xform)
+       path        : /go2_wx250s/FL_hip
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.6779999732971191
+       density     : 0.0
+       center_mass : (-0.0054, 0.00194, -0.000105)
+       has_collider: False
+
+  [ 2] FL_thigh  (Xform)
+       path        : /go2_wx250s/FL_thigh
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 1.1519999504089355
+       density     : 0.0
+       center_mass : (-0.00374, -0.0223, -0.0327)
+       has_collider: False
+
+  [ 3] FL_calf  (Xform)
+       path        : /go2_wx250s/FL_calf
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.15399999916553497
+       density     : 0.0
+       center_mass : (0.00548, -0.000975, -0.115)
+       has_collider: False
+
+  [ 4] FL_foot  (Xform)
+       path        : /go2_wx250s/FL_foot
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.05999999865889549
+       density     : 0.0
+       center_mass : (-inf, -inf, -inf)
+       has_collider: False
+
+  [ 5] FR_hip  (Xform)
+       path        : /go2_wx250s/FR_hip
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.6779999732971191
+       density     : 0.0
+       center_mass : (-0.0054, -0.00194, -0.000105)
+       has_collider: False
+
+  [ 6] FR_thigh  (Xform)
+       path        : /go2_wx250s/FR_thigh
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 1.1519999504089355
+       density     : 0.0
+       center_mass : (-0.00374, 0.0223, -0.0327)
+       has_collider: False
+
+  [ 7] FR_calf  (Xform)
+       path        : /go2_wx250s/FR_calf
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.15399999916553497
+       density     : 0.0
+       center_mass : (0.00548, -0.000975, -0.115)
+       has_collider: False
+
+  [ 8] FR_foot  (Xform)
+       path        : /go2_wx250s/FR_foot
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.05999999865889549
+       density     : 0.0
+       center_mass : (-inf, -inf, -inf)
+       has_collider: False
+
+  [ 9] RL_hip  (Xform)
+       path        : /go2_wx250s/RL_hip
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.6779999732971191
+       density     : 0.0
+       center_mass : (0.0054, 0.00194, -0.000105)
+       has_collider: False
+
+  [10] RL_thigh  (Xform)
+       path        : /go2_wx250s/RL_thigh
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 1.1519999504089355
+       density     : 0.0
+       center_mass : (-0.00374, -0.0223, -0.0327)
+       has_collider: False
+
+  [11] RL_calf  (Xform)
+       path        : /go2_wx250s/RL_calf
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.15399999916553497
+       density     : 0.0
+       center_mass : (0.00548, -0.000975, -0.115)
+       has_collider: False
+
+  [12] RL_foot  (Xform)
+       path        : /go2_wx250s/RL_foot
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.05999999865889549
+       density     : 0.0
+       center_mass : (-inf, -inf, -inf)
+       has_collider: False
+
+  [13] RR_hip  (Xform)
+       path        : /go2_wx250s/RR_hip
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.6779999732971191
+       density     : 0.0
+       center_mass : (0.0054, -0.00194, -0.000105)
+       has_collider: False
+
+  [14] RR_thigh  (Xform)
+       path        : /go2_wx250s/RR_thigh
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 1.1519999504089355
+       density     : 0.0
+       center_mass : (-0.00374, 0.0223, -0.0327)
+       has_collider: False
+
+  [15] RR_calf  (Xform)
+       path        : /go2_wx250s/RR_calf
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.15399999916553497
+       density     : 0.0
+       center_mass : (0.00548, -0.000975, -0.115)
+       has_collider: False
+
+  [16] RR_foot  (Xform)
+       path        : /go2_wx250s/RR_foot
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.05999999865889549
+       density     : 0.0
+       center_mass : (-inf, -inf, -inf)
+       has_collider: False
+
+  [17] shoulder_link  (Xform)
+       path        : /go2_wx250s/shoulder_link
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.480879008769989
+       density     : 0.0
+       center_mass : (0.0000223482, 0.0000414609, 0.0066287)
+       has_collider: False
+
+  [18] upper_arm_link  (Xform)
+       path        : /go2_wx250s/upper_arm_link
+       rb_enabled  : True
+       kinematic   : False
+       mass        : 0.43081098794937134
+       density     : 0.0
+       center_mass : (0.0171605, 2.725e-7, 0.191323)
+       has_collider: False
+
+============================================================
