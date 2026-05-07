@@ -128,6 +128,9 @@ class PPO:
         self.normalize_advantage_per_mini_batch = normalize_advantage_per_mini_batch
 
         self.priv_reg_coef_schedual = priv_reg_coef_schedual
+        # 兼容不同动作维度任务：若未指定 min_policy_std，则使用 18 DOF 默认值
+        if min_policy_std is None:
+            min_policy_std = [[0.15, 0.25, 0.25] * 4 + [0.2] * 6]
         self.min_policy_std = torch.tensor(min_policy_std, device=self.device)
         self.mixing_schedule = mixing_schedule
         self.torque_supervision = torque_supervision

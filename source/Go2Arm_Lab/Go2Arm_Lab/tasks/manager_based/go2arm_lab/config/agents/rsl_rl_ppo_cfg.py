@@ -71,6 +71,10 @@ class Go2ArmRslRlPpoAlgorithmCfg(RslRlPpoAlgorithmCfg):
     eps : float = MISSING
     """数值稳定性 epsilon"""
 
+    min_policy_std: list | None = None
+    """策略动作分布的最小标准差下限。形状须与总动作维度匹配 (1, num_actions)。
+    若为 None，则使用 PPO 内部默认值（对应 18 DOF 任务）。"""
+
 
 @configclass
 class Go2ArmRslRlOnPolicyRunnerCfg(RslRlOnPolicyRunnerCfg):
@@ -209,4 +213,7 @@ class Go2ArmV3CirclePPORunnerCfg(Go2ArmRslRlOnPolicyRunnerCfg):
         priv_reg_coef_schedual=[0, 0.1, 1500, 4000],
         mixing_schedule=[1.0, 0, 3000],
         eps=1e-5,
+        # v3 共 14 DOF：12 腿（hip/thigh/calf 各 4） + 2 臂 (waist, shoulder)
+        # 形状必须为 (1, num_actions) 与策略 std 一致
+        min_policy_std=[[0.15, 0.25, 0.25] * 4 + [0.2] * 2],
     )
