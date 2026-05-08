@@ -702,6 +702,13 @@ class Go2ArmV3StandPushFixedArmEnvCfg_PLAY(Go2ArmV3StandPushFixedArmEnvCfg):
         # 关闭推撞事件
         self.events.push_robot = None
 
+        # 关闭"接触类"终止条件 + 拉长 episode：测试后坐力稳定性时，机器狗倒了就让它倒下，
+        # 不再自动 reset 回站立姿态。time_out 仍然保留，episode 结束后会自然重置。
+        self.terminations.base_contact = None
+        self.terminations.thigh_contact = None
+        self.terminations.calf_contact = None
+        self.episode_length_s = 15.0  # 单局延长到 60 秒，便于观察长时间累计效果
+
         # 启用灭火枪后坐力事件
         self.events.recoil_force = EventTerm(
             func=mdp.apply_recoil_burst,
