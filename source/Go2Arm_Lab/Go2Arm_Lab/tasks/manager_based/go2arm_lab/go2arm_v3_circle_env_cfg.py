@@ -580,3 +580,100 @@ class Go2ArmV3CircleFixedArmEnvCfg_PLAY(Go2ArmV3CircleFixedArmEnvCfg):
         self.commands.base_velocity.ranges.lin_vel_x = (0.5, 0.5)
         self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
         self.commands.base_velocity.ranges.ang_vel_z = (0.5, 0.5)
+
+
+# =============================================================================
+# 站立抗推 (Stand & Push) 变体：
+#   - 继承 FixedArm 设定（waist / shoulder 固定）；
+#   - base_velocity 命令恒为 0（站立不动）；
+#   - 周期性向 base 施加随机水平速度扰动，模拟被推撞；
+#   - 调整奖励权重：弱化步态相关奖励（feet_air_time / foot_contact），
+#     强化姿态与高度保持，鼓励原地稳定站立。
+#
+# 用法示例：
+#   python scripts/rsl_rl/train.py --task Isaac-Go2ArmV3-StandPush-FixedArm \
+#       --headless env.fixed_waist=0.0 env.fixed_shoulder=0.0
+#   python scripts/rsl_rl/play.py  --task Isaac-Go2ArmV3-StandPush-FixedArm-Play \
+#       --num_envs 1 env.fixed_waist=0.0 env.fixed_shoulder=0.0
+# =============================================================================
+
+@configclass
+class Go2ArmV3StandPushFixedArmEnvCfg(Go2ArmV3CircleFixedArmEnvCfg):
+    """臂关节固定 + 原地站立抗推训练配置。"""
+
+    # ---- 推撞参数（可通过 Hydra CLI 覆盖）----
+    push_interval_s_min: float = 6.0
+    """两次推撞之间的最小时间间隔 (s)。"""
+    push_interval_s_max: float = 10.0
+    """两次推撞之间的最大时间间隔 (s)。"""
+    push_velocity_x: float = 0.8
+    """x 方向推撞速度幅值 (m/s)，每次从 [-x, +x] 均匀采样。"""
+    push_velocity_y: float = 0.8
+    """y 方向推撞速度幅值 (m/s)，每次从 [-y, +y] 均匀采样。"""
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+
+        # 1) 速度命令恒为 0（站立任务）
+        zero_range = (0.0, 0.0)
+        self.commands.base_velocity.ranges.lin_vel_x = zero_range
+        self.commands.base_velocity.ranges.lin_vel_y = zero_range
+        self.commands.base_velocity.ranges.ang_vel_z = zero_range
+        self.commands.base_velocity.ranges_init.lin_vel_x = zero_range
+        self.commands.base_velocity.ranges_init.lin_vel_y = zero_range
+        self.commands.base_velocity.ranges_init.ang_vel_z = zero_range
+        self.commands.base_velocity.ranges_final.lin_vel_x = zero_range
+        self.commands.base_velocity.ranges_final.lin_vel_y = zero_range
+        self.commands.base_velocity.ranges_final.ang_vel_z = zero_range
+        self.commands.base_velocity.rel_standing_envs = 1.0
+
+        # 2) 启用周期性推撞事件（通过随机设定 base 线速度模拟外力扰动）
+        self.events.push_robot = EventTerm(
+            func=mdp.push_by_setting_velocity,
+            mode="interval",
+            interval_range_s=(float(self.push_interval_s_min), float(self.push_interval_s_max)),
+            params={
+                "velocity_range": {
+                    "x": (-float(self.push_velocity_x), float(self.push_velocity_x)),
+                    "y": (-float(self.push_velocity_y), float(self.push_velocity_y)),
+                },
+            },
+        )
+
+        # 3) reset 时收紧本体扰动，使 episode 起始基本静止（仅小幅 yaw 与位置噪声）
+        self.events.reset_base.params = {
+            "pose_range": {"x": (-0.1, 0.1), "y": (-0.1, 0.1), "yaw": (-0.5, 0.5)},
+            "velocity_range": {
+                "x": (0.0, 0.0), "y": (0.0, 0.0), "z": (0.0, 0.0),
+                "roll": (0.0, 0.0), "pitch": (0.0, 0.0), "yaw": (0.0, 0.0),
+            },
+        }
+
+        # 4) 调整奖励：站立任务下不再奖励抬脚 / 跨步
+        if self.rewards.F_feet_air_time is not None:
+            self.rewards.F_feet_air_time.weight = 0.0
+        if self.rewards.R_feet_air_time is not None:
+            self.rewards.R_feet_air_time.weight = 0.0
+        if self.rewards.foot_contact is not None:
+            self.rewards.foot_contact.weight = 0.0
+
+        # 强化姿态保持（被推后能回到水平）
+        self.rewards.flat_orientation_l2.weight = -2.0
+        self.rewards.height_reward.weight = -3.0
+
+
+@configclass
+class Go2ArmV3StandPushFixedArmEnvCfg_PLAY(Go2ArmV3StandPushFixedArmEnvCfg):
+    """臂关节固定 + 原地站立抗推 - 推理 / 演示配置。
+
+    PLAY 模式保留 push_robot 事件以便观察策略的抗扰能力。
+    """
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+
+        self.scene.num_envs = 50
+        self.scene.env_spacing = 2.5
+        self.observations.policy.enable_corruption = False
+        self.events.base_external_force_torque = None
+        # 注意：PLAY 模式下保留 push_robot 以可视化抗推效果，如不需要可手动置 None
