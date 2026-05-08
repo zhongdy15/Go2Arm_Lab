@@ -519,10 +519,10 @@ class Go2ArmV3CircleFixedArmEnvCfg(Go2ArmV3CircleEnvCfg):
     """臂关节 (waist / shoulder) 固定的圆周运动训练配置。"""
 
     # ---- 用户可调参数 ----
-    fixed_waist: float = 0.785 #1.57 0.785 0.0 -0.758 -1.57 
+    fixed_waist: float = 0.0 #1.57 0.785 0.0 -0.758 -1.57 
     """waist 关节的固定角度 (rad)，建议范围与 USD 限制一致：[-π, π]"""
 
-    fixed_shoulder: float = -0.35 #1.57 0.785 0.0 -0.758 -1.57
+    fixed_shoulder: float = 0.0 #1.57 0.785 0.0 -0.758 -1.57
     """shoulder 关节的固定角度 (rad)，USD 限制约 [-1.88, 1.99]"""
 
     def __post_init__(self) -> None:
@@ -664,10 +664,32 @@ class Go2ArmV3StandPushFixedArmEnvCfg(Go2ArmV3CircleFixedArmEnvCfg):
 
 @configclass
 class Go2ArmV3StandPushFixedArmEnvCfg_PLAY(Go2ArmV3StandPushFixedArmEnvCfg):
-    """臂关节固定 + 原地站立抗推 - 推理 / 演示配置。
+    """臂关节固定 + 原地站立 - 推理 / 演示配置。
 
-    PLAY 模式保留 push_robot 事件以便观察策略的抗扰能力。
+    PLAY 模式下：
+      - 关闭 push_robot 推撞事件；
+      - 启用「灭火枪后坐力」事件：在 upper_arm_link 上沿其本体 -X 方向
+        周期性施加冲击力（连发模式）。
+
+    可调超参（支持 Hydra CLI 覆盖）：
+        env.recoil_force_magnitude  单发后坐力幅值 (N)
+        env.recoil_shots_per_burst  一轮连发的弹数
+        env.recoil_shot_interval_s  连发内相邻两发的时间间隔 (s)
+        env.recoil_burst_cooldown_s 两轮连发之间的冷却时间 (s)
+
+    用法示例：
+        python scripts/rsl_rl/play.py --task Isaac-Go2ArmV3-StandPush-FixedArm-Play \
+            --num_envs 1 --checkpoint /path/to/model.pt \
+            env.fixed_waist=0.0 env.fixed_shoulder=0.0 \
+            env.recoil_force_magnitude=120.0 env.recoil_shots_per_burst=5 \
+            env.recoil_shot_interval_s=0.1 env.recoil_burst_cooldown_s=2.0
     """
+
+    # ---- 后坐力超参（用户可调）----
+    recoil_force_magnitude: float = 80.0
+    recoil_shots_per_burst: int = 3
+    recoil_shot_interval_s: float = 0.15
+    recoil_burst_cooldown_s: float = 3.0
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -676,4 +698,24 @@ class Go2ArmV3StandPushFixedArmEnvCfg_PLAY(Go2ArmV3StandPushFixedArmEnvCfg):
         self.scene.env_spacing = 2.5
         self.observations.policy.enable_corruption = False
         self.events.base_external_force_torque = None
-        # 注意：PLAY 模式下保留 push_robot 以可视化抗推效果，如不需要可手动置 None
+
+        # 关闭推撞事件
+        self.events.push_robot = None
+
+        # 启用灭火枪后坐力事件
+        self.events.recoil_force = EventTerm(
+            func=mdp.apply_recoil_burst,
+            mode="interval",
+            interval_range_s=(
+                float(self.recoil_shot_interval_s),
+                float(self.recoil_shot_interval_s),
+            ),
+            params={
+                "asset_cfg": SceneEntityCfg("robot", body_names="upper_arm_link"),
+                "force_magnitude": float(self.recoil_force_magnitude),
+                "shots_per_burst": int(self.recoil_shots_per_burst),
+                "shot_interval_s": float(self.recoil_shot_interval_s),
+                "burst_cooldown_s": float(self.recoil_burst_cooldown_s),
+                "direction_local": (-1.0, 0.0, 0.0),  # body 局部 -X = 枪口反向
+            },
+        )
