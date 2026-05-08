@@ -367,6 +367,9 @@ class  ActorCritic(nn.Module):
             std = torch.exp(self.log_std).expand_as(mean)
         else:
             raise ValueError(f"Unknown standard deviation type: {self.noise_std_type}. Should be 'scalar' or 'log'")
+        # 数值保护：std 是可学习参数，PPO mini-batch 更新过程中梯度可能把它推到 <= 0 或 NaN
+        # （enforce_min_std 只在整轮 update 结束后才调用），这里强制最小值避免 Normal 构造崩溃。
+        std = torch.nan_to_num(std, nan=1e-3, posinf=1.0, neginf=1e-3).clamp_min(1e-3)
         # create distribution
         self.distribution = Normal(mean, std)
 
