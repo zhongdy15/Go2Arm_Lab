@@ -519,10 +519,10 @@ class Go2ArmV3CircleFixedArmEnvCfg(Go2ArmV3CircleEnvCfg):
     """臂关节 (waist / shoulder) 固定的圆周运动训练配置。"""
 
     # ---- 用户可调参数 ----
-    fixed_waist: float = 1.57
+    fixed_waist: float = 0.785 #1.57 0.785 0.0 -0.758 -1.57 
     """waist 关节的固定角度 (rad)，建议范围与 USD 限制一致：[-π, π]"""
 
-    fixed_shoulder: float = 0.0
+    fixed_shoulder: float = 0.0 #1.57 0.785 0.0 -0.758 -1.57
     """shoulder 关节的固定角度 (rad)，USD 限制约 [-1.88, 1.99]"""
 
     def __post_init__(self) -> None:
