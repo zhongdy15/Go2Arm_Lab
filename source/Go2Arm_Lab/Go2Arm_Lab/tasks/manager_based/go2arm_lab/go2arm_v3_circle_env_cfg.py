@@ -540,7 +540,10 @@ class Go2ArmV3CircleFixedArmEnvCfg(Go2ArmV3CircleEnvCfg):
         # 2) 关闭臂部动作输出（target = default + 0 * action = default 常量）
         self.actions.arm_pose.scale = {"waist": 0.0, "shoulder": 0.0}
 
-        # 3) reset 时只随机化腿部 12 关节，避免把 waist/shoulder 抖出固定值
+        # 3) reset 时只随机化腿部 12 关节，避免把 waist/shoulder 抖出固定值。
+        #    使用自定义 reset_joints_by_scale_filtered，绕过 IsaacLab 上游
+        #    reset_joints_by_scale 在 joint_names 过滤时的 fancy-indexing bug。
+        self.events.reset_robot_joints.func = mdp.reset_joints_by_scale_filtered
         self.events.reset_robot_joints.params = {
             "asset_cfg": SceneEntityCfg(
                 "robot",
