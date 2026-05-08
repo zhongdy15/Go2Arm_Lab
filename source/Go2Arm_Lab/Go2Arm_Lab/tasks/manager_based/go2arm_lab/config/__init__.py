@@ -85,3 +85,35 @@ gym.register(
         ),
     },
 )
+
+
+# 固定臂关节 (waist / shoulder) 版本
+gym.register(
+    id="Isaac-Go2ArmV3-Circle-FixedArm",
+    entry_point="Go2Arm_Lab.env.manager_env:ManagerRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            "Go2Arm_Lab.tasks.manager_based.go2arm_lab.go2arm_v3_circle_env_cfg:"
+            "Go2ArmV3CircleFixedArmEnvCfg"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.rsl_rl_ppo_cfg:Go2ArmV3CirclePPORunnerCfg"
+        ),
+    },
+)
+
+gym.register(
+    id="Isaac-Go2ArmV3-Circle-FixedArm-Play",
+    entry_point="Go2Arm_Lab.env.manager_env:ManagerRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            "Go2Arm_Lab.tasks.manager_based.go2arm_lab.go2arm_v3_circle_env_cfg:"
+            "Go2ArmV3CircleFixedArmEnvCfg_PLAY"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.rsl_rl_ppo_cfg:Go2ArmV3CirclePPORunnerCfg"
+        ),
+    },
+)

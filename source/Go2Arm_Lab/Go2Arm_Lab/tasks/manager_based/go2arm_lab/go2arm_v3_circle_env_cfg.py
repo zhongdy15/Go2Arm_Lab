@@ -492,3 +492,88 @@ class Go2ArmV3CircleEnvCfg_PLAY(Go2ArmV3CircleEnvCfg):
         self.commands.base_velocity.ranges.lin_vel_x = (0.5, 0.5)
         self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
         self.commands.base_velocity.ranges.ang_vel_z = (0.5, 0.5)  # r = 1.0m 圆周
+
+
+# =============================================================================
+# 固定臂关节版本：waist 与 shoulder 在整个 episode 内保持给定常量值。
+#
+# 使用方式：
+#   - 直接修改下方 fixed_waist / fixed_shoulder 的默认值即可；
+#   - 或通过 Hydra 命令行覆盖：
+#       python scripts/rsl_rl/train.py --task Isaac-Go2ArmV3-Circle-FixedArm \
+#           --headless env.fixed_waist=0.3 env.fixed_shoulder=-0.2
+#       python scripts/rsl_rl/play.py  --task Isaac-Go2ArmV3-Circle-FixedArm-Play \
+#           --num_envs 1 env.fixed_waist=0.3 env.fixed_shoulder=-0.2
+#
+# 实现方式：
+#   1. 在 __post_init__ 中用 .replace() 覆盖 GO2ARM_V3_CFG 的初始关节角度，
+#      把 waist/shoulder 设为 fixed_waist/fixed_shoulder。
+#   2. 把 arm_pose 动作的 scale 置为 0.0：动作 = default + 0 × policy_output = default，
+#      使臂关节始终被 PD 控制器驱动到指定常量姿态。
+#   3. reset_robot_joints 事件改为只随机化腿部 12 关节，避免重置时把臂关节随机化。
+#   4. 移除 end_effector_arm_deviation 奖励（恒等于 0），减少不必要的计算。
+# =============================================================================
+
+@configclass
+class Go2ArmV3CircleFixedArmEnvCfg(Go2ArmV3CircleEnvCfg):
+    """臂关节 (waist / shoulder) 固定的圆周运动训练配置。"""
+
+    # ---- 用户可调参数 ----
+    fixed_waist: float = 0.0
+    """waist 关节的固定角度 (rad)，建议范围与 USD 限制一致：[-π, π]"""
+
+    fixed_shoulder: float = 0.0
+    """shoulder 关节的固定角度 (rad)，USD 限制约 [-1.88, 1.99]"""
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+
+        # 1) 覆盖机器人初始关节角度（waist/shoulder 改为用户指定值）
+        robot_cfg = self.scene.robot
+        new_joint_pos = dict(robot_cfg.init_state.joint_pos)
+        new_joint_pos["waist"] = float(self.fixed_waist)
+        new_joint_pos["shoulder"] = float(self.fixed_shoulder)
+        self.scene.robot = robot_cfg.replace(
+            init_state=robot_cfg.init_state.replace(joint_pos=new_joint_pos)
+        )
+
+        # 2) 关闭臂部动作输出（target = default + 0 * action = default 常量）
+        self.actions.arm_pose.scale = {"waist": 0.0, "shoulder": 0.0}
+
+        # 3) reset 时只随机化腿部 12 关节，避免把 waist/shoulder 抖出固定值
+        self.events.reset_robot_joints.params = {
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    ".*_hip_joint",
+                    ".*_thigh_joint",
+                    ".*_calf_joint",
+                ],
+            ),
+            "position_range": (0.5, 1.5),
+            "velocity_range": (0.0, 0.0),
+        }
+
+        # 4) 移除已恒等于 0 的臂关节偏离惩罚（保留动作平滑项以维持 arm 价值头有非零目标信号）
+        self.rewards.end_effector_arm_deviation = None
+
+
+@configclass
+class Go2ArmV3CircleFixedArmEnvCfg_PLAY(Go2ArmV3CircleFixedArmEnvCfg):
+    """固定臂关节圆周运动 - 推理 / 演示配置。"""
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+
+        self.scene.num_envs = 50
+        self.scene.env_spacing = 2.5
+        self.observations.policy.enable_corruption = False
+        self.events.base_external_force_torque = None
+        self.events.push_robot = None
+
+        self.commands.base_velocity.is_Go2ARM = False
+        self.commands.base_velocity.resampling_time_range = (20.0, 20.0)
+        self.commands.base_velocity.rel_standing_envs = 0.0
+        self.commands.base_velocity.ranges.lin_vel_x = (0.5, 0.5)
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
+        self.commands.base_velocity.ranges.ang_vel_z = (0.5, 0.5)
