@@ -563,7 +563,34 @@ class Go2ArmV3CircleFixedArmEnvCfg(Go2ArmV3CircleEnvCfg):
 
 @configclass
 class Go2ArmV3CircleFixedArmEnvCfg_PLAY(Go2ArmV3CircleFixedArmEnvCfg):
-    """固定臂关节圆周运动 - 推理 / 演示配置。"""
+    """固定臂关节圆周运动 - 推理 / 演示配置。
+
+    可选：在 PLAY 模式下启用「灭火枪后坐力」事件，测试后坐力对圆周步态的影响。
+    通过设置 ``recoil_force_magnitude > 0`` 启用（默认 0 即关闭）。
+
+    可调超参（支持 Hydra CLI 覆盖）：
+        env.recoil_force_magnitude  单发后坐力幅值 (N)，0 表示关闭
+        env.recoil_shots_per_burst  一轮连发的弹数
+        env.recoil_shot_interval_s  连发内相邻两发的时间间隔 (s)
+        env.recoil_burst_cooldown_s 两轮连发之间的冷却时间 (s)
+
+    用法示例：
+        # 不开后坐力（保留原有圆周演示行为）
+        python scripts/rsl_rl/play.py --task Isaac-Go2ArmV3-Circle-FixedArm-Play \
+            --num_envs 1 --checkpoint /path/to/model.pt
+
+        # 启用后坐力（80N 三连发，0.15s 间隔，3s 冷却）
+        python scripts/rsl_rl/play.py --task Isaac-Go2ArmV3-Circle-FixedArm-Play \
+            --num_envs 1 --checkpoint /path/to/model.pt \
+            env.recoil_force_magnitude=80.0 env.recoil_shots_per_burst=3 \
+            env.recoil_shot_interval_s=0.15 env.recoil_burst_cooldown_s=3.0
+    """
+
+    # ---- 后坐力超参（用户可调，0 表示关闭）----
+    recoil_force_magnitude: float = 0.0
+    recoil_shots_per_burst: int = 3
+    recoil_shot_interval_s: float = 0.15
+    recoil_burst_cooldown_s: float = 3.0
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -580,6 +607,31 @@ class Go2ArmV3CircleFixedArmEnvCfg_PLAY(Go2ArmV3CircleFixedArmEnvCfg):
         self.commands.base_velocity.ranges.lin_vel_x = (0.5, 0.5)
         self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
         self.commands.base_velocity.ranges.ang_vel_z = (0.5, 0.5)
+
+        # PLAY 模式下：测试鲁棒性，机器狗倒了就让它倒下，不再因 base/thigh/calf 接触而 reset。
+        self.terminations.base_contact = None
+        self.terminations.thigh_contact = None
+        self.terminations.calf_contact = None
+        self.episode_length_s = 60.0  # 拉长 episode 便于长时间观察
+
+        # 灭火枪后坐力事件（仅当 recoil_force_magnitude > 0 时启用）
+        if float(self.recoil_force_magnitude) > 0.0:
+            self.events.recoil_force = EventTerm(
+                func=mdp.apply_recoil_burst,
+                mode="interval",
+                interval_range_s=(
+                    float(self.recoil_shot_interval_s),
+                    float(self.recoil_shot_interval_s),
+                ),
+                params={
+                    "asset_cfg": SceneEntityCfg("robot", body_names="upper_arm_link"),
+                    "force_magnitude": float(self.recoil_force_magnitude),
+                    "shots_per_burst": int(self.recoil_shots_per_burst),
+                    "shot_interval_s": float(self.recoil_shot_interval_s),
+                    "burst_cooldown_s": float(self.recoil_burst_cooldown_s),
+                    "direction_local": (-1.0, 0.0, 0.0),  # body 局部 -X = 枪口反向
+                },
+            )
 
 
 # =============================================================================
