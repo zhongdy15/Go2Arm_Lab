@@ -590,7 +590,7 @@ class Go2ArmV3CircleFixedArmEnvCfg_PLAY(Go2ArmV3CircleFixedArmEnvCfg):
     recoil_force_magnitude: float = 80.0 #0.0
     recoil_shots_per_burst: int = 3
     recoil_shot_interval_s: float = 0.15
-    recoil_burst_cooldown_s: float = 3.0
+    recoil_burst_cooldown_s: float = 5.0
 
     def __post_init__(self) -> None:
         super().__post_init__()
