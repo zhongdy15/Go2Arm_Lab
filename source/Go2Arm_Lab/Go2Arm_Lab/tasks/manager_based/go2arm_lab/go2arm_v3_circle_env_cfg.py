@@ -587,7 +587,7 @@ class Go2ArmV3CircleFixedArmEnvCfg_PLAY(Go2ArmV3CircleFixedArmEnvCfg):
     """
 
     # ---- 后坐力超参（用户可调，0 表示关闭）----
-    recoil_force_magnitude: float = 0.0
+    recoil_force_magnitude: float = 80.0 #0.0
     recoil_shots_per_burst: int = 3
     recoil_shot_interval_s: float = 0.15
     recoil_burst_cooldown_s: float = 3.0
