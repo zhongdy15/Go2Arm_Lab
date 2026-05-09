@@ -612,7 +612,7 @@ class Go2ArmV3CircleFixedArmEnvCfg_PLAY(Go2ArmV3CircleFixedArmEnvCfg):
         self.terminations.base_contact = None
         self.terminations.thigh_contact = None
         self.terminations.calf_contact = None
-        self.episode_length_s = 60.0  # 拉长 episode 便于长时间观察
+        self.episode_length_s = 15.0  # 拉长 episode 便于长时间观察
 
         # 灭火枪后坐力事件（仅当 recoil_force_magnitude > 0 时启用）
         if float(self.recoil_force_magnitude) > 0.0:
