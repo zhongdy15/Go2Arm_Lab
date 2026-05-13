@@ -1,0 +1,40 @@
+# -------------------------
+# Model checkpoints / weights
+# -------------------------
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+
+# -------------------------
+# Training logs and outputs
+# -------------------------
+logs/
+outputs/
+**/events.out.tfevents.*
+
+# -------------------------
+# Python cache/build artifacts
+# -------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+build/
+dist/
+*.egg-info/
+
+# -------------------------
+# Environment / local files
+# -------------------------
+.venv/
+venv/
+env/
+
+.DS_Store
+Thumbs.db
