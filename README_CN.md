@@ -1,6 +1,7 @@
 # Go2Arm_Lab
 test 
 test in 0513
+test in ssh key
 
 **一个用于足式操作机器人的强化学习训练框架**
   
