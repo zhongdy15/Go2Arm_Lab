@@ -6,6 +6,7 @@
 *.ckpt
 *.onnx
 *.safetensors
+*.usd
 
 # -------------------------
 # Training logs and outputs
