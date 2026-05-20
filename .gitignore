@@ -7,6 +7,7 @@
 *.onnx
 *.safetensors
 *.usd
+source/Go2Arm_Lab/Go2Arm_Lab/assets/*.usd
 
 # -------------------------
 # Training logs and outputs
